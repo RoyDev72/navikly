@@ -38,3 +38,21 @@ No secrets in this file. Secrets live only in `.env.local` (gitignored) and Verc
   - RLS on all 36 public tables ✅
   - `npm audit --omit=dev`: 6 high, all via `shadcn` CLI (braces/micromatch glob DoS). Only used as a build-time CSS import; fix = major downgrade → not applied.
   - Low (not fixed): SECURITY DEFINER RPCs executable by `anon` (all check `auth.uid()`, trigger fns can't be called as RPC); invite-URL fallback `https://wacrm.tech` is unreachable once `NEXT_PUBLIC_SITE_URL` is set (it is in prod).
+
+## Step 4 — Deploy (Vercel)
+- Vercel connector lacked access to team scope `shivam-roys-projects` (403) → used Vercel CLI 63.1 (`vercel login` by Shivam)
+- Project `navikly` (prj_A6arUJpfrghfAp3EQD6Dj8Ct8JjF), team `shivam-roys-projects` (Hobby), linked to GitHub `RoyDev72/navikly` (main → production)
+- Env (Production + Preview): Supabase URL/anon (config), service role, ENCRYPTION_KEY, AUTOMATION_CRON_SECRET (secret), NEXT_PUBLIC_SITE_URL=https://navikly.vercel.app, NEXT_PUBLIC_APP_LOCALE=en. META_* pending (Gate D)
+- `vercel.json`: functions region `bom1` (Mumbai, next to Supabase)
+- **Production URL: https://navikly.vercel.app** ✅
+- Smoke: /login 200 (title "Navikly"), /signup → /login, webhook POST w/o signature 401, cron w/o secret 401
+
+## Step 5 — Cron (Supabase pg_cron + pg_net)
+- Extensions `pg_cron`, `pg_net` enabled
+- Cron secret stored in Vault as `navikly_cron_secret` (pushed via a temporary service-role-only RPC, then dropped — value never in SQL text)
+- Jobs `navikly-automations-cron`, `navikly-flows-cron` every 2 min → `net.http_get` with `x-cron-secret` from Vault
+- First run: both **200** ✅
+
+## Step 6 — WhatsApp
+- Webhook callback URL: https://navikly.vercel.app/api/whatsapp/webhook
+- Verify token (not a high-value secret): `navikly-b84e2d3b0670d2bb012eeee5`
