@@ -45,6 +45,7 @@ No secrets in this file. Secrets live only in `.env.local` (gitignored) and Verc
 - Env (Production + Preview): Supabase URL/anon (config), service role, ENCRYPTION_KEY, AUTOMATION_CRON_SECRET (secret), NEXT_PUBLIC_SITE_URL=https://navikly.vercel.app, NEXT_PUBLIC_APP_LOCALE=en. META_* pending (Gate D)
 - `vercel.json`: functions region `bom1` (Mumbai, next to Supabase)
 - **Production URL: https://navikly.vercel.app** ✅
+- Supabase Auth: Site URL + redirect URLs set by Shivam; production login ✅; no runtime errors in Vercel logs (last 1h)
 - Smoke: /login 200 (title "Navikly"), /signup → /login, webhook POST w/o signature 401, cron w/o secret 401
 
 ## Step 5 — Cron (Supabase pg_cron + pg_net)
