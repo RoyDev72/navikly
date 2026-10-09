@@ -11,6 +11,7 @@ import { NextRequest } from "next/server";
 //                      of the test is that these must survive onto whatever
 //                      response the middleware returns — including redirects.
 let mockUser: { id: string } | null = null;
+let peekOk = false;
 let refreshedCookies: Array<{
   name: string;
   value: string;
@@ -34,6 +35,7 @@ vi.mock("@supabase/ssr", () => ({
         return { data: { user: mockUser } };
       },
     },
+    rpc: async () => ({ data: { ok: peekOk } }),
   }),
 }));
 
@@ -45,6 +47,8 @@ beforeEach(() => {
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY = "anon-key";
   mockUser = null;
   refreshedCookies = [];
+  peekOk = false;
+  delete process.env.ALLOW_PUBLIC_SIGNUP;
 });
 
 afterEach(() => vi.clearAllMocks());
@@ -136,5 +140,29 @@ describe("middleware — every dashboard route requires a session", () => {
 
     expect(res.status).toBe(307);
     expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+});
+
+describe("middleware — public signup lock", () => {
+  it("redirects /signup without an invite to /login", async () => {
+    const res = await middleware(new NextRequest("https://app.test/signup"));
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("redirects /signup with an invalid invite to /login", async () => {
+    const res = await middleware(new NextRequest("https://app.test/signup?invite=bad"));
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/login");
+  });
+
+  it("allows /signup with a valid invite", async () => {
+    peekOk = true;
+    const res = await middleware(new NextRequest("https://app.test/signup?invite=good"));
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("allows /signup when ALLOW_PUBLIC_SIGNUP=true", async () => {
+    process.env.ALLOW_PUBLIC_SIGNUP = "true";
+    const res = await middleware(new NextRequest("https://app.test/signup"));
+    expect(res.headers.get("location")).toBeNull();
   });
 });

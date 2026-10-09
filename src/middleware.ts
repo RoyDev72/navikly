@@ -69,6 +69,33 @@ export async function middleware(request: NextRequest) {
     return withRefreshedCookies(NextResponse.redirect(url))
   }
 
+  // Public signup is off unless ALLOW_PUBLIC_SIGNUP=true. Invite links
+  // (/join/<token> → /signup?invite=<token>) still work: the token must
+  // peek as a live, unredeemed invitation.
+  // ponytail: page-level gate only — Supabase Auth's signup API stays
+  // reachable with the anon key; disable it in the dashboard (and move
+  // invite signups server-side) if that matters.
+  if (
+    !user &&
+    request.nextUrl.pathname === '/signup' &&
+    process.env.ALLOW_PUBLIC_SIGNUP !== 'true'
+  ) {
+    const invite = request.nextUrl.searchParams.get('invite')
+    let valid = false
+    if (invite) {
+      const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(invite))
+      const hash = Array.from(new Uint8Array(digest), (b) => b.toString(16).padStart(2, '0')).join('')
+      const { data } = await supabase.rpc('peek_invitation', { p_token_hash: hash })
+      valid = (data as { ok?: boolean } | null)?.ok === true
+    }
+    if (!valid) {
+      const url = request.nextUrl.clone()
+      url.pathname = '/login'
+      url.search = ''
+      return withRefreshedCookies(NextResponse.redirect(url))
+    }
+  }
+
   // Protected pages - redirect to login if not authenticated
   // Every top-level route under src/app/(dashboard)/ belongs here —
   // middleware.test.ts reads that directory and fails on a missing one.
